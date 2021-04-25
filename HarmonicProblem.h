@@ -51,7 +51,7 @@ public:
    int bound_count;                // Количество краевых условий
 
    // Вспомогательная функция для формирования сетки
-   void ReadFormGridHelp(int& t_nodes_count, vector<double> t_nodes, vector<int>& t_cords_i, ifstream& fin)
+   void ReadFormGridHelp(int& t_nodes_count, vector<double>& t_nodes, vector<int>& t_cords_i, ifstream& fin)
    {
       int t_coords_count;
       fin >> t_coords_count;
@@ -88,7 +88,7 @@ public:
       for(int i = 0; i < n_t.size(); i++)
          t_cords_i[i + 1] = n_t[i];
 
-      elems_count *= n_t[n_t.size() - 1] / 2;
+      elems_count *= n_t[n_t.size() - 1];
    }
 
    // Считывание и формирование сетки из файла file_name
@@ -190,20 +190,20 @@ public:
    void CalcGlobalIndices(int elem_index, vector<int>& global_indices)
    {
       int n_coords = x_nodes_count / 2 + 1;
-      int k = 2 * floor((elem_index) / (n_coords - 1)) * (2 * n_coords - 1) + 2 * ((elem_index) % (n_coords - 1)) + 1;
-      k--;
+      int k = elem_index % (x_nodes_count - 1) + x_nodes_count * floor(elem_index / (x_nodes_count - 1));
+      k = k % (x_nodes_count * (y_nodes_count - 1)) + (x_nodes_count * y_nodes_count) * floor(k / (x_nodes_count * (y_nodes_count - 1)));
 
       global_indices[0] = k + 0;
       global_indices[1] = k + 1;
-      global_indices[2] = k + 2;
 
-      global_indices[3] = k + 2 * n_coords - 1;
-      global_indices[4] = k + 2 * n_coords - 0;
-      global_indices[5] = k + 2 * n_coords + 1;
+      global_indices[2] = k + x_nodes_count + 0;
+      global_indices[3] = k + x_nodes_count + 1;
 
-      global_indices[6] = k + 2 * (2 * n_coords - 1);
-      global_indices[7] = k + 2 * (2 * n_coords - 1) + 1;
-      global_indices[8] = k + 2 * (2 * n_coords - 1) + 2;
+      global_indices[4] = k + x_nodes_count * y_nodes_count + 0;
+      global_indices[5] = k + x_nodes_count * y_nodes_count + 1;
+
+      global_indices[6] = k + x_nodes_count * y_nodes_count + x_nodes_count + 0;
+      global_indices[7] = k + x_nodes_count * y_nodes_count + x_nodes_count + 1;
    }
 
    // Поиск региона по номеру конечного элемента
