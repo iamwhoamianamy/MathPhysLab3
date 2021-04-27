@@ -351,7 +351,7 @@ public:
    }
 
    // Добавление элемента в матрицу
-   void AddToMat(Matrix& mat, const int& row_i, const int& col_i, const double& val_l, const double& val_u)
+   void AddToMat(Matrix& mat, const int& row_i, const int& col_i, const double& val_l)
    {
       int beg_prof = mat.ind[row_i];
       int end_prof = mat.ind[row_i + 1];
@@ -361,7 +361,7 @@ public:
          if(mat.columns_ind[i_in_prof] == col_i)
          {
             mat.bot_tr[i_in_prof] += val_l;
-            mat.top_tr[i_in_prof] += val_u;
+            mat.top_tr[i_in_prof] += val_l;
             break;
          }
       }
@@ -391,98 +391,91 @@ public:
       //cout << x0 << " " << y0 << " " << z0 << endl;
    }
 
-   //// Сборка матриц жесткости и массы
-   //void BuildMatrices(const double& t)
-   //{
-   //   vector<int> global_indices(9);
+   // Сборка матриц жесткости и массы
+   void BuildMatrices()
+   {
+      vector<int> global_indices(9);
 
-   //   for(int elem_i = 0; elem_i < elems_count; elem_i++)
-   //   {
-   //      int reg_i = CalcRegionIndex(elem_i);
-   //      CalcGlobalIndices(elem_i, global_indices);
+      for(int elem_i = 0; elem_i < elems_count; elem_i++)
+      {
+         int reg_i = CalcRegionIndex(elem_i);
+         CalcGlobalIndices(elem_i, global_indices);
 
-   //      if(reg_i == -1)
-   //      {
-   //         for(int i = 0; i < 9; i++)
-   //         {
-   //            stiff_mat.diag[global_indices[i]] = 1;
-   //            stiff_mat.diag[global_indices[i] + 1] = 1;
+         if(reg_i == -1)
+         {
+            for(int i = 0; i < 9; i++)
+            {
+               stiff_mat.diag[global_indices[i]] = 1;
+               stiff_mat.diag[global_indices[i] + 1] = 1;
 
-   //            sigma_mass_mat.diag[global_indices[i]] = 0;
-   //            sigma_mass_mat.diag[global_indices[i] + 1] = 0;
+               sigma_mass_mat.diag[global_indices[i]] = 0;
+               sigma_mass_mat.diag[global_indices[i] + 1] = 0;
 
-   //            chi_mass_mat.diag[global_indices[i]] = 0;
-   //            chi_mass_mat.diag[global_indices[i] + 1] = 0;
+               chi_mass_mat.diag[global_indices[i]] = 0;
+               chi_mass_mat.diag[global_indices[i] + 1] = 0;
 
-   //            b[global_indices[i]] = 0;
-   //            b[global_indices[i] + 1] = 0;
+               b[global_indices[i]] = 0;
+               b[global_indices[i] + 1] = 0;
 
-   //            location[global_indices[i]] = 2;
-   //            location[global_indices[i] + 1] = 2;
-   //         }
-   //      }
-   //      else
-   //      {
-   //         vector<double> x_elem_nodes(2);       // Координаты конечного элемента по x
-   //         vector<double> y_elem_nodes(2);       // Координаты конечного элемента по y
-   //         vector<double> z_elem_nodes(2);       // Координаты конечного элемента по z
-   //         CalcElemNodes(elem_i, x_elem_nodes, y_elem_nodes, z_elem_nodes);
+               location[global_indices[i]] = 2;
+               location[global_indices[i] + 1] = 2;
+            }
+         }
+         else
+         {
+            vector<double> x_elem_nodes(2);       // Координаты конечного элемента по x
+            vector<double> y_elem_nodes(2);       // Координаты конечного элемента по y
+            vector<double> z_elem_nodes(2);       // Координаты конечного элемента по z
+            CalcElemNodes(elem_i, x_elem_nodes, y_elem_nodes, z_elem_nodes);
 
-   //         double hx = x_elem_nodes[1] - x_elem_nodes[0];
-   //         double hy = y_elem_nodes[1] - y_elem_nodes[0];
-   //         double hz = z_elem_nodes[1] - z_elem_nodes[0];
+            double hx = x_elem_nodes[1] - x_elem_nodes[0];
+            double hy = y_elem_nodes[1] - y_elem_nodes[0];
+            double hz = z_elem_nodes[1] - z_elem_nodes[0];
 
-   //         vector<double> local_f(8);
+            vector<double> local_f(8);
 
-   //         for(int i = 0; i < 8; i++)
-   //         {
-   //            double x = x_elem_nodes[i % 2];
-   //            double y = y_elem_nodes[floor(i / 2)];
-   //            double z = y_elem_nodes[floor(i / 4)];
+            for(int i = 0; i < 8; i++)
+            {
+               double x = x_elem_nodes[i % 2];
+               double y = y_elem_nodes[floor(i / 2)];
+               double z = y_elem_nodes[floor(i / 4)];
 
-   //            double val = test.lambda(x, y) * (hy * hz / hx * GMM.diag[i] + hx * hz / hy * MGM.diag[i] + hx * hy / hz * MMG.diag[i]);
-   //            stiff_mat.diag[global_indices[i]] += val;
-   //            stiff_mat.diag[global_indices[i] + 1] += val;
+               stiff_mat.diag[global_indices[i]] += test.lambda() * (hy * hz / hx * GMM.diag[i] +
+                                                                     hx * hz / hy * MGM.diag[i] +
+                                                                     hx * hy / hz * MMG.diag[i]);
 
+               chi_mass_mat.diag[global_indices[i]] += test.chi() * hx * hy * hz / 216.0 * MMM.diag[i];
 
-   //            sigma_mass_mat.diag[global_indices[i]] += (test.sigma() * hx * hy / 900.0) * M.diag[i];
-   //            chi_mass_mat.diag[global_indices[i]] += (test.chi() * hx * hy / 900.0) * M.diag[i];
+               local_f[i] = test.f(x, y, z);
+               true_solution[global_indices[i]] = test.u(x, y, z);
 
-   //            local_f[i] = test.f(x_elem_nodes[i % 3], y_elem_nodes[floor(i / 3)], t);
-   //            true_solution[global_indices[i]] = test.u(x, y, t);
+               int beg_prof = stiff_mat.ind[i];
+               int end_prof = stiff_mat.ind[i + 1];
 
-   //            int beg_prof = M.ind[i];
-   //            int end_prof = M.ind[i + 1];
+               for(int tr_i = beg_prof; tr_i < end_prof; tr_i++)
+               {
+                  int j = MMM.columns_ind[tr_i];
 
-   //            for(int i_in_prof = beg_prof; i_in_prof < end_prof; i_in_prof++)
-   //            {
-   //               int j = M.columns_ind[i_in_prof];
+                  double val = test.lambda() * (hy * hz / hx * GMM.bot_tr[tr_i] +
+                                                hx * hz / hy * MGM.bot_tr[tr_i] +
+                                                hx * hy / hz * MMG.bot_tr[tr_i]);
+                  AddToMat(stiff_mat, global_indices[i], global_indices[j], val);
 
-   //               //double val_l = (test.lambda(x, y) / 90.0) * (hy / hx * G1.bot_tr[i_in_prof] + hx / hy * G2.bot_tr[i_in_prof]);
+                  val = test.chi() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
+                  AddToMat(chi_mass_mat, global_indices[i], global_indices[j], val);
 
-   //               //double val_u = (test.lambda(x, y) / 90.0) * (hy / hx * G1.top_tr[i_in_prof] + hx / hy * G2.top_tr[i_in_prof]);
+                  val = test.sigma() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
+                  AddToMat(sigma_mass_mat, global_indices[i], global_indices[j], val);
+               }
+            }
 
-   //               AddToMat(stiff_mat, global_indices[i], global_indices[j], val_l, val_u);
-
-   //               val_l = (test.sigma() * hx * hy / 900.0) * M.bot_tr[i_in_prof];
-   //               val_u = (test.sigma() * hx * hy / 900.0) * M.top_tr[i_in_prof];
-
-   //               AddToMat(sigma_mass_mat, global_indices[i], global_indices[j], val_l, val_u);
-
-   //               val_l = (test.chi() * hx * hy / 900.0) * M.bot_tr[i_in_prof];
-   //               val_u = (test.chi() * hx * hy / 900.0) * M.top_tr[i_in_prof];
-
-   //               AddToMat(chi_mass_mat, global_indices[i], global_indices[j], val_l, val_u);
-   //            }
-   //         }
-
-   //         vector<double> local_b(9);
-   //         M.MatVecMult(local_f, local_b, M.bot_tr, M.top_tr);
-   //         for(int i = 0; i < 9; i++)
-   //            b[global_indices[i]] += hx * hy / 900.0 * local_b[i];
-   //      }
-   //   }
-   //}
+            vector<double> local_b(8);
+            MMM.MatVecMult(local_f, local_b, MMM.bot_tr, MMM.top_tr);
+            for(int i = 0; i < 8; i++)
+               b[global_indices[i]] += hx * hy * hz / 216.0 * local_b[i];
+         }
+      }
+   }
 
    // Сборка глобальной матрицы
    void AssembleGlobalMatrix()

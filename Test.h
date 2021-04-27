@@ -12,19 +12,19 @@ public:
 
    Test() : N(0){};
 
-   double f(const double& x, const double& y, const double& t)
+   double f(const double& x, const double& y, const double& z)
    {
-      return -1 * divlambdagrad(x, y, t) +
-         sigma() * dudt(x, y, t) + chi() * d2udt2(x, y, t);
+      return -1 * divlambdagrad(x, y, z) +
+         sigma() * dudt(x, y, z) + chi() * d2udt2(x, y, z);
    }
 
-   double lambda(const double& x, const double& y)
+   double lambda()
    {
       return 1;
    }
 
    // Точное решение
-   double u(const double& x, const double& y, const double& t)
+   double u(const double& x, const double& y, const double& z)
    {
       switch(N)
       {
@@ -36,7 +36,7 @@ public:
       };
    }
 
-   double divlambdagrad(const double& x, const double& y, const double& t)
+   double divlambdagrad(const double& x, const double& y, const double& z)
    {
       switch(N)
       {
