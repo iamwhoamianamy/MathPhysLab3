@@ -10,8 +10,14 @@ int main()
 
    for(int i = 0; i < hp.elems_count; i++)
    {
-      vector<int> vec(8);
-      hp.CalcGlobalIndices(i, vec);
+      vector<double> x_nodes_elem(2);       // Координаты конечного элемента по x
+      vector<double> y_nodes_elem(2);       // Координаты конечного элемента по y
+      vector<double> z_nodes_elem(2);       // Координаты конечного элемента по y
+      hp.CalcElemNodes(i, x_nodes_elem, y_nodes_elem, z_nodes_elem);
+
    }
+
+   hp.InitializeMemory();
+   hp.FormGlobalPortrait();
 
 }

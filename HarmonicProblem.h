@@ -23,6 +23,7 @@ public:
 
    vector<double> b;              // Глобальный вектор правой части
    vector<double> loc_b;          // Локальный вектор правой части
+   vector<double> true_solution;  // Точное решение
    vector<double> solution;       // Решение
    vector<int> location;          // Положение на сетке для каждого узла
 
@@ -183,10 +184,11 @@ public:
       slae = SLAE(nodes_count, 10000, 1e-20);
       fac_slae = SLAE(nodes_count, 10000, 1e-20);
 
-      global.ind = vector<int>(nodes_count + 1);
+      global.ind = vector<int>(nodes_count * 2 + 1);
       b = vector<double>(nodes_count);
 
       solution = vector<double>(nodes_count);
+      true_solution = vector<double>(nodes_count);
       location = vector<int>(nodes_count);
 
       stiff_mat = Matrix(nodes_count);
@@ -203,17 +205,17 @@ public:
       int k = elem_index % (x_nodes_count - 1) + x_nodes_count * floor(elem_index / (x_nodes_count - 1));
       k = k % (x_nodes_count * (y_nodes_count - 1)) + (x_nodes_count * y_nodes_count) * floor(k / (x_nodes_count * (y_nodes_count - 1)));
 
-      global_indices[0] = k + 0;
-      global_indices[1] = k + 1;
+      global_indices[0] = (k + 0);
+      global_indices[1] = (k + 1);
 
-      global_indices[2] = k + x_nodes_count + 0;
-      global_indices[3] = k + x_nodes_count + 1;
+      global_indices[2] = (k + x_nodes_count + 0);
+      global_indices[3] = (k + x_nodes_count + 1);
 
-      global_indices[4] = k + x_nodes_count * y_nodes_count + 0;
-      global_indices[5] = k + x_nodes_count * y_nodes_count + 1;
+      global_indices[4] = (k + x_nodes_count * y_nodes_count + 0);
+      global_indices[5] = (k + x_nodes_count * y_nodes_count + 1);
 
-      global_indices[6] = k + x_nodes_count * y_nodes_count + x_nodes_count + 0;
-      global_indices[7] = k + x_nodes_count * y_nodes_count + x_nodes_count + 1;
+      global_indices[6] = (k + x_nodes_count * y_nodes_count + x_nodes_count + 0);
+      global_indices[7] = (k + x_nodes_count * y_nodes_count + x_nodes_count + 1);
    }
 
    // Поиск региона по номеру конечного элемента
@@ -238,15 +240,15 @@ public:
    }
 
    // Вспомогательная функция для формирования портрета
-   void IncertToRow(const int& r, const int& c)
+   void IncertToRow(Matrix& mat, const int& r, const int& c)
    {
-      int i_in_jg = global.ind[r];
-      int prof_len = global.ind[r + 1] - global.ind[r];
+      int i_in_jg = mat.ind[r];
+      int prof_len = mat.ind[r + 1] - mat.ind[r];
 
       bool found = false;
 
       for(int k = i_in_jg; k < i_in_jg + prof_len; k++)
-         if(global.columns_ind[k] == c)
+         if(mat.columns_ind[k] == c)
          {
             found = true;
             break;
@@ -254,20 +256,20 @@ public:
 
       if(!found)
       {
-         for(int l = r + 1; l < global.ind.size(); l++)
-            global.ind[l]++;
+         for(int l = r + 1; l < mat.ind.size(); l++)
+            mat.ind[l]++;
 
          int k = i_in_jg;
 
-         while((k < i_in_jg + prof_len) && global.columns_ind[k] < c)
+         while((k < i_in_jg + prof_len) && mat.columns_ind[k] < c)
             k++;
 
-         global.columns_ind.insert(global.columns_ind.begin() + k, c);
+         mat.columns_ind.insert(mat.columns_ind.begin() + k, c);
       }
    }
 
-   // Формирование портрета глобальной матрицы
-   void FormPortrait()
+   // Формирование портрета глобальной матрицы с учетом блочной специфики
+   void FormGlobalPortrait()
    {
       global.ind[0] = global.ind[1] = 0;
 
@@ -277,25 +279,29 @@ public:
 
          //if(reg_i != -1)
          {
-            vector<int> global_indices(9);
+            vector<int> global_indices(8);
             CalcGlobalIndices(elem_i, global_indices);
-            vector<vector<vector<int>>> help(9);
+            vector<vector<vector<int>>> help(8);
 
-            for(int i = 0; i < 9; i++)
-               help[i].resize(9);
+            for(int i = 0; i < 8; i++)
+               help[i].resize(8);
 
-            for(int i = 0; i < 9; i++)
-               for(int j = 0; j < 9; j++)
+            for(int i = 0; i < 8; i++)
+               for(int j = 0; j < 8; j++)
                   help[i][j] = { global_indices[i], global_indices[j] };
 
+            for(int i = 0; i < 8; i++)
+            {
+               IncertToRow(global, help[i][i][0] * 2 + 1, help[i][i][1] * 2);
+            }
 
-            for(int i = 0; i < 9; i++)
+            for(int i = 0; i < 8; i++)
                for(int j = 0; j < i; j++)
                {
-                  IncertToRow(help[i][j][0] * 2, help[i][j][1] * 2);
-                  IncertToRow(help[i][j][0] * 2, help[i][j][1] * 2 + 1);
-                  IncertToRow(help[i][j][0] * 2 + 1, help[i][j][1] * 2);
-                  IncertToRow(help[i][j][0] * 2 + 1, help[i][j][1] * 2 + 1);
+                  IncertToRow(global, help[i][j][0] * 2, help[i][j][1] * 2);
+                  IncertToRow(global, help[i][j][0] * 2, help[i][j][1] * 2 + 1);
+                  IncertToRow(global, help[i][j][0] * 2 + 1, help[i][j][1] * 2);
+                  IncertToRow(global, help[i][j][0] * 2 + 1, help[i][j][1] * 2 + 1);
                }
          }
       }
@@ -306,10 +312,42 @@ public:
       global.tr_size = global.columns_ind.size();
       global.bot_tr.resize(global.tr_size);
       global.top_tr.resize(global.tr_size);
+   }
 
-      stiff_mat = global;
-      sigma_mass_mat = global;
-      chi_mass_mat = global;
+   // Формирование портрета матрицы mat
+   void FormPortrait(Matrix& mat)
+   {
+      mat.ind[0] = mat.ind[1] = 0;
+
+      for(int elem_i = 0; elem_i < elems_count; elem_i++)
+      {
+         int reg_i = CalcRegionIndex(elem_i);
+
+         //if(reg_i != -1)
+         {
+            vector<int> mat_indices(8);
+            CalcGlobalIndices(elem_i, mat_indices);
+            vector<vector<vector<int>>> help(8);
+
+            for(int i = 0; i < 8; i++)
+               help[i].resize(8);
+
+            for(int i = 0; i < 8; i++)
+               for(int j = 0; j < 8; j++)
+                  help[i][j] = { mat_indices[i], mat_indices[j] };
+
+            for(int i = 0; i < 8; i++)
+               for(int j = 0; j < i; j++)
+                  IncertToRow(mat, help[i][j][0], help[i][j][1]);
+         }
+      }
+
+      mat.size = mat.ind.size() - 1;
+      mat.diag.resize(mat.size);
+
+      mat.tr_size = mat.columns_ind.size();
+      mat.bot_tr.resize(mat.tr_size);
+      mat.top_tr.resize(mat.tr_size);
    }
 
    // Добавление элемента в матрицу
@@ -331,155 +369,165 @@ public:
 
    // Находит координаты узлов конечного элемента
    // с номером elem_index(индексация с нуля)
-   void CalcElemNodes(int elem_index, vector<double>& x_nodes_elem, vector<double>& y_nodes_elem)
+   void CalcElemNodes(const int& elem_i, vector<double>& x_elem_nodes, vector<double>& y_elem_nodes, vector<double>& z_elem_nodes)
    {
-      int n_coords = x_nodes_count / 2 + 1;
-      int x0 = (elem_index) % (n_coords - 1) * 2;
-      int y0 = floor((elem_index) / (n_coords - 1)) * 2;
+      int n_x = x_nodes_count - 1;
+      int n_y = y_nodes_count - 1;
+      int n_z = z_nodes_count - 1;
 
-      x_nodes_elem[0] = x_nodes[x0];
-      x_nodes_elem[1] = x_nodes[x0 + 1];
-      x_nodes_elem[2] = x_nodes[x0 + 2];
+      int x0 = elem_i % n_x;
+      int y0 = (int)floor(elem_i / n_x) % n_y;
+      int z0 = (int)floor(elem_i / (n_x * n_y));
 
-      y_nodes_elem[0] = y_nodes[y0];
-      y_nodes_elem[1] = y_nodes[y0 + 1];
-      y_nodes_elem[2] = y_nodes[y0 + 2];
+      x_elem_nodes[0] = x0;
+      x_elem_nodes[1] = x0 + 1;
+
+      y_elem_nodes[0] = y0;
+      y_elem_nodes[1] = y0 + 1;
+
+      z_elem_nodes[0] = z0;
+      z_elem_nodes[1] = z0 + 1;
+
+      //cout << x0 << " " << y0 << " " << z0 << endl;
    }
 
-   // Сборка матриц жесткости и массы
-   void BuildMatrices(const double& t)
-   {
-      vector<int> global_indices(9);
+   //// Сборка матриц жесткости и массы
+   //void BuildMatrices(const double& t)
+   //{
+   //   vector<int> global_indices(9);
 
-      for(int elem_i = 0; elem_i < elems_count; elem_i++)
-      {
-         int reg_i = CalcRegionIndex(elem_i);
-         CalcGlobalIndices(elem_i, global_indices);
+   //   for(int elem_i = 0; elem_i < elems_count; elem_i++)
+   //   {
+   //      int reg_i = CalcRegionIndex(elem_i);
+   //      CalcGlobalIndices(elem_i, global_indices);
 
-         if(reg_i == -1)
-         {
-            for(int i = 0; i < 9; i++)
-            {
-               stiff_mat.diag[global_indices[i]] = 1;
-               sigma_mass_mat.diag[global_indices[i]] = 0;
-               chi_mass_mat.diag[global_indices[i]] = 0;
-               b[global_indices[i]] = 0;
-               location[global_indices[i]] = 2;
-            }
-         }
-         else
-         {
-            vector<double> x_nodes_elem(3);       // Координаты конечного элемента по x
-            vector<double> y_nodes_elem(3);       // Координаты конечного элемента по y
-            CalcElemNodes(elem_i, x_nodes_elem, y_nodes_elem);
+   //      if(reg_i == -1)
+   //      {
+   //         for(int i = 0; i < 9; i++)
+   //         {
+   //            stiff_mat.diag[global_indices[i]] = 1;
+   //            stiff_mat.diag[global_indices[i] + 1] = 1;
 
-            double hx = x_nodes_elem[2] - x_nodes_elem[0];
-            double hy = y_nodes_elem[2] - y_nodes_elem[0];
+   //            sigma_mass_mat.diag[global_indices[i]] = 0;
+   //            sigma_mass_mat.diag[global_indices[i] + 1] = 0;
 
-            vector<double> local_f(9);
+   //            chi_mass_mat.diag[global_indices[i]] = 0;
+   //            chi_mass_mat.diag[global_indices[i] + 1] = 0;
 
-            vector<double> lambda {
-                  test.lambda(x_nodes_elem[0], y_nodes_elem[0]),
-                  test.lambda(x_nodes_elem[0], y_nodes_elem[2]),
-                  test.lambda(x_nodes_elem[2], y_nodes_elem[0]),
-                  test.lambda(x_nodes_elem[2], y_nodes_elem[2]) };
+   //            b[global_indices[i]] = 0;
+   //            b[global_indices[i] + 1] = 0;
 
-            for(int i = 0; i < 9; i++)
-            {
-               double x = x_nodes_elem[i % 3];
-               double y = y_nodes_elem[floor(i / 3)];
+   //            location[global_indices[i]] = 2;
+   //            location[global_indices[i] + 1] = 2;
+   //         }
+   //      }
+   //      else
+   //      {
+   //         vector<double> x_elem_nodes(2);       // Координаты конечного элемента по x
+   //         vector<double> y_elem_nodes(2);       // Координаты конечного элемента по y
+   //         vector<double> z_elem_nodes(2);       // Координаты конечного элемента по z
+   //         CalcElemNodes(elem_i, x_elem_nodes, y_elem_nodes, z_elem_nodes);
 
-               //stiff_mat.diag[global_indices[i]] += (test.lambda(x, y) / 90.0) * (hy / hx * G1.diag[i] + hx / hy * G2.diag[i]);
-               stiff_mat.diag[global_indices[i]] += (1.0 / 90.0) * 
-                  (hy / hx * (Gl[0].diag[i] * lambda[0] + Gl[1].diag[i] * lambda[1] + Gl[2].diag[i] * lambda[2] + Gl[3].diag[i] * lambda[3]) +
-                   hx / hy * (Gr[0].diag[i] * lambda[0] + Gr[1].diag[i] * lambda[1] + Gr[2].diag[i] * lambda[2] + Gr[3].diag[i] * lambda[3]));
+   //         double hx = x_elem_nodes[1] - x_elem_nodes[0];
+   //         double hy = y_elem_nodes[1] - y_elem_nodes[0];
+   //         double hz = z_elem_nodes[1] - z_elem_nodes[0];
 
-               sigma_mass_mat.diag[global_indices[i]] += (test.sigma() * hx * hy / 900.0) * M.diag[i];
-               chi_mass_mat.diag[global_indices[i]] += (test.chi() * hx * hy / 900.0) * M.diag[i];
+   //         vector<double> local_f(8);
 
-               local_f[i] = test.f(x_nodes_elem[i % 3], y_nodes_elem[floor(i / 3)], t);
-               true_solution[global_indices[i]] = test.u(x, y, t);
+   //         for(int i = 0; i < 8; i++)
+   //         {
+   //            double x = x_elem_nodes[i % 2];
+   //            double y = y_elem_nodes[floor(i / 2)];
+   //            double z = y_elem_nodes[floor(i / 4)];
 
-               int beg_prof = M.ind[i];
-               int end_prof = M.ind[i + 1];
+   //            double val = test.lambda(x, y) * (hy * hz / hx * GMM.diag[i] + hx * hz / hy * MGM.diag[i] + hx * hy / hz * MMG.diag[i]);
+   //            stiff_mat.diag[global_indices[i]] += val;
+   //            stiff_mat.diag[global_indices[i] + 1] += val;
 
-               for(int i_in_prof = beg_prof; i_in_prof < end_prof; i_in_prof++)
-               {
-                  int j = M.columns_ind[i_in_prof];
 
-                  //double val_l = (test.lambda(x, y) / 90.0) * (hy / hx * G1.bot_tr[i_in_prof] + hx / hy * G2.bot_tr[i_in_prof]);
-                  double val_l = (1.0 / 90.0) * 
-                     (hy / hx * (Gl[0].bot_tr[i_in_prof] * lambda[0] + Gl[1].bot_tr[i_in_prof] * lambda[1] + Gl[2].bot_tr[i_in_prof] * lambda[2] + Gl[3].bot_tr[i_in_prof] * lambda[3]) +
-                      hx / hy * (Gr[0].bot_tr[i_in_prof] * lambda[0] + Gr[1].bot_tr[i_in_prof] * lambda[1] + Gr[2].bot_tr[i_in_prof] * lambda[2] + Gr[3].bot_tr[i_in_prof] * lambda[3]));
-                  
-                  //double val_u = (test.lambda(x, y) / 90.0) * (hy / hx * G1.top_tr[i_in_prof] + hx / hy * G2.top_tr[i_in_prof]);
-                  double val_u = (1.0 / 90.0) * 
-                     (hy / hx * (Gl[0].top_tr[i_in_prof] * lambda[0] + Gl[1].top_tr[i_in_prof] * lambda[1] + Gl[2].top_tr[i_in_prof] * lambda[2] + Gl[3].top_tr[i_in_prof] * lambda[3]) +
-                      hx / hy * (Gr[0].top_tr[i_in_prof] * lambda[0] + Gr[1].top_tr[i_in_prof] * lambda[1] + Gr[2].top_tr[i_in_prof] * lambda[2] + Gr[3].top_tr[i_in_prof] * lambda[3]));
+   //            sigma_mass_mat.diag[global_indices[i]] += (test.sigma() * hx * hy / 900.0) * M.diag[i];
+   //            chi_mass_mat.diag[global_indices[i]] += (test.chi() * hx * hy / 900.0) * M.diag[i];
 
-                  AddToMat(stiff_mat, global_indices[i], global_indices[j], val_l, val_u);
+   //            local_f[i] = test.f(x_elem_nodes[i % 3], y_elem_nodes[floor(i / 3)], t);
+   //            true_solution[global_indices[i]] = test.u(x, y, t);
 
-                  val_l = (test.sigma() * hx * hy / 900.0) * M.bot_tr[i_in_prof];
-                  val_u = (test.sigma() * hx * hy / 900.0) * M.top_tr[i_in_prof];
+   //            int beg_prof = M.ind[i];
+   //            int end_prof = M.ind[i + 1];
 
-                  AddToMat(sigma_mass_mat, global_indices[i], global_indices[j], val_l, val_u);
+   //            for(int i_in_prof = beg_prof; i_in_prof < end_prof; i_in_prof++)
+   //            {
+   //               int j = M.columns_ind[i_in_prof];
 
-                  val_l = (test.chi() * hx * hy / 900.0) * M.bot_tr[i_in_prof];
-                  val_u = (test.chi() * hx * hy / 900.0) * M.top_tr[i_in_prof];
+   //               //double val_l = (test.lambda(x, y) / 90.0) * (hy / hx * G1.bot_tr[i_in_prof] + hx / hy * G2.bot_tr[i_in_prof]);
 
-                  AddToMat(chi_mass_mat, global_indices[i], global_indices[j], val_l, val_u);
-               }
-            }
+   //               //double val_u = (test.lambda(x, y) / 90.0) * (hy / hx * G1.top_tr[i_in_prof] + hx / hy * G2.top_tr[i_in_prof]);
 
-            vector<double> local_b(9);
-            M.MatVecMult(local_f, local_b, M.bot_tr, M.top_tr);
-            for(int i = 0; i < 9; i++)
-               b[global_indices[i]] += hx * hy / 900.0 * local_b[i];
-         }
-      }
-   }
+   //               AddToMat(stiff_mat, global_indices[i], global_indices[j], val_l, val_u);
+
+   //               val_l = (test.sigma() * hx * hy / 900.0) * M.bot_tr[i_in_prof];
+   //               val_u = (test.sigma() * hx * hy / 900.0) * M.top_tr[i_in_prof];
+
+   //               AddToMat(sigma_mass_mat, global_indices[i], global_indices[j], val_l, val_u);
+
+   //               val_l = (test.chi() * hx * hy / 900.0) * M.bot_tr[i_in_prof];
+   //               val_u = (test.chi() * hx * hy / 900.0) * M.top_tr[i_in_prof];
+
+   //               AddToMat(chi_mass_mat, global_indices[i], global_indices[j], val_l, val_u);
+   //            }
+   //         }
+
+   //         vector<double> local_b(9);
+   //         M.MatVecMult(local_f, local_b, M.bot_tr, M.top_tr);
+   //         for(int i = 0; i < 9; i++)
+   //            b[global_indices[i]] += hx * hy / 900.0 * local_b[i];
+   //      }
+   //   }
+   //}
 
    // Сборка глобальной матрицы
    void AssembleGlobalMatrix()
    {
-      for(int i = 0; i < nodes_count; i++)
+      for(int i = 0; i < nodes_count * 2; i++)
          global.diag[i] = stiff_mat.diag[i] - chi_mass_mat.diag[i];
 
-      for(int i = 0; i < nodes_count; i++)
-      {
-         int prof_beg = global.ind[i];
-         int prof_end = global.ind[i + 1];
 
-         for(int tr_i = prof_beg; tr_i < prof_end; tr_i++)
-         {
-            if(i % 1 == 1)
-            {
-               if(global.columns_ind[tr_i] % 2 == 0)
-               {
-                  global.bot_tr[tr_i] = sigma_mass_mat.bot_tr[tr_i];
-                  global.top_tr[tr_i] = -sigma_mass_mat.bot_tr[tr_i];
-               }
-               else
-               {
-                  global.bot_tr[tr_i] = stiff_mat.bot_tr[tr_i] + chi_mass_mat.bot_tr[tr_i];
-                  global.top_tr[tr_i] = stiff_mat.top_tr[tr_i] + chi_mass_mat.top_tr[tr_i];
-               }
-            }
-            else
-            {
-               if(global.columns_ind[tr_i] % 2 == 0)
-               {
-                  global.bot_tr[tr_i] = stiff_mat.bot_tr[tr_i] + chi_mass_mat.bot_tr[tr_i];
-                  global.top_tr[tr_i] = stiff_mat.top_tr[tr_i] + chi_mass_mat.top_tr[tr_i];
-               }
-               else
-               {
-                  global.bot_tr[tr_i] = -sigma_mass_mat.bot_tr[tr_i];
-                  global.top_tr[tr_i] = sigma_mass_mat.bot_tr[tr_i];
-               }
-            }
-         }
-      }
+
+
+      //for(int i = 0; i < nodes_count; i++)
+      //{
+      //   int prof_beg = global.ind[i];
+      //   int prof_end = global.ind[i + 1];
+
+      //   for(int tr_i = prof_beg; tr_i < prof_end; tr_i++)
+      //   {
+      //      if(i % 1 == 1)
+      //      {
+      //         if(global.columns_ind[tr_i] % 2 == 0)
+      //         {
+      //            global.bot_tr[tr_i] = sigma_mass_mat.bot_tr[tr_i];
+      //            global.top_tr[tr_i] = -sigma_mass_mat.bot_tr[tr_i];
+      //         }
+      //         else
+      //         {
+      //            global.bot_tr[tr_i] = stiff_mat.bot_tr[tr_i] + chi_mass_mat.bot_tr[tr_i];
+      //            global.top_tr[tr_i] = stiff_mat.top_tr[tr_i] + chi_mass_mat.top_tr[tr_i];
+      //         }
+      //      }
+      //      else
+      //      {
+      //         if(global.columns_ind[tr_i] % 2 == 0)
+      //         {
+      //            global.bot_tr[tr_i] = stiff_mat.bot_tr[tr_i] + chi_mass_mat.bot_tr[tr_i];
+      //            global.top_tr[tr_i] = stiff_mat.top_tr[tr_i] + chi_mass_mat.top_tr[tr_i];
+      //         }
+      //         else
+      //         {
+      //            global.bot_tr[tr_i] = -sigma_mass_mat.bot_tr[tr_i];
+      //            global.top_tr[tr_i] = sigma_mass_mat.bot_tr[tr_i];
+      //         }
+      //      }
+      //   }
+      //}
    }
 
    //// Учет первых краевых условий на строкес с номером line_i
