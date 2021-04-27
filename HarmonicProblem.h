@@ -350,19 +350,24 @@ public:
       mat.top_tr.resize(mat.tr_size);
    }
 
-   // Добавление элемента в матрицу
-   void AddToMat(Matrix& mat, const int& row_i, const int& col_i, const double& val_l)
+   // Добавление к элменту матрицы с индексом [row_i][col_i] значения val
+   void AddToMat(Matrix& mat, const int& row_i, const int& col_i, const double& val_l, const double& val_u)
    {
-      int beg_prof = mat.ind[row_i];
-      int end_prof = mat.ind[row_i + 1];
-
-      for(int i_in_prof = beg_prof; i_in_prof < end_prof; i_in_prof++)
+      if(row_i == col_i)
+         mat.diag[row_i] += val_l;
+      else
       {
-         if(mat.columns_ind[i_in_prof] == col_i)
+         int beg_prof = mat.ind[row_i];
+         int end_prof = mat.ind[row_i + 1];
+
+         for(int i_in_prof = beg_prof; i_in_prof < end_prof; i_in_prof++)
          {
-            mat.bot_tr[i_in_prof] += val_l;
-            mat.top_tr[i_in_prof] += val_l;
-            break;
+            if(mat.columns_ind[i_in_prof] == col_i)
+            {
+               mat.bot_tr[i_in_prof] += val_l;
+               mat.top_tr[i_in_prof] += val_u;
+               break;
+            }
          }
       }
    }
@@ -379,22 +384,22 @@ public:
       int y0 = (int)floor(elem_i / n_x) % n_y;
       int z0 = (int)floor(elem_i / (n_x * n_y));
 
-      x_elem_nodes[0] = x0;
-      x_elem_nodes[1] = x0 + 1;
+      x_elem_nodes[0] = x_nodes[x0];
+      x_elem_nodes[1] = x_nodes[x0 + 1];
 
-      y_elem_nodes[0] = y0;
-      y_elem_nodes[1] = y0 + 1;
+      y_elem_nodes[0] = y_nodes[y0];
+      y_elem_nodes[1] = y_nodes[y0 + 1];
 
-      z_elem_nodes[0] = z0;
-      z_elem_nodes[1] = z0 + 1;
+      z_elem_nodes[0] = z_nodes[z0];
+      z_elem_nodes[1] = z_nodes[z0 + 1];
 
       //cout << x0 << " " << y0 << " " << z0 << endl;
    }
 
-   // Сборка матриц жесткости и массы
-   void BuildMatrices()
+   // Сборка глобальной матрицы
+   void AssembleGlobalMatrix()
    {
-      vector<int> global_indices(9);
+      vector<int> global_indices(8);
 
       for(int elem_i = 0; elem_i < elems_count; elem_i++)
       {
@@ -437,14 +442,8 @@ public:
             for(int i = 0; i < 8; i++)
             {
                double x = x_elem_nodes[i % 2];
-               double y = y_elem_nodes[floor(i / 2)];
-               double z = y_elem_nodes[floor(i / 4)];
-
-               stiff_mat.diag[global_indices[i]] += test.lambda() * (hy * hz / hx * GMM.diag[i] +
-                                                                     hx * hz / hy * MGM.diag[i] +
-                                                                     hx * hy / hz * MMG.diag[i]);
-
-               chi_mass_mat.diag[global_indices[i]] += test.chi() * hx * hy * hz / 216.0 * MMM.diag[i];
+               double y = y_elem_nodes[(int)floor(i / 2) % 2];
+               double z = y_elem_nodes[(int)floor(i / 4) % 4];
 
                local_f[i] = test.f(x, y, z);
                true_solution[global_indices[i]] = test.u(x, y, z);
@@ -452,20 +451,31 @@ public:
                int beg_prof = stiff_mat.ind[i];
                int end_prof = stiff_mat.ind[i + 1];
 
-               for(int tr_i = beg_prof; tr_i < end_prof; tr_i++)
+               for(int j = 0; j <= i; j++)
                {
-                  int j = MMM.columns_ind[tr_i];
+                  double p = 0;
+                  double c = 0;
 
-                  double val = test.lambda() * (hy * hz / hx * GMM.bot_tr[tr_i] +
-                                                hx * hz / hy * MGM.bot_tr[tr_i] +
-                                                hx * hy / hz * MMG.bot_tr[tr_i]);
-                  AddToMat(stiff_mat, global_indices[i], global_indices[j], val);
+                  if(i == j)
+                  {
+                     p = test.lambda() * (hy * hz / (hx * 36) * GMM.diag[i] + hx * hz / (hy * 36) * MGM.diag[i] + hx * hy / (hz * 36) * MMG.diag[i]);
+                     //p -= test.chi() * hx * hy * hz / 216.0 * MMM.diag[i];
+                     c = test.sigma() * hx * hy * hz / 216.0 * MMM.diag[i];
+                  }
+                  else
+                  {
+                     int tr_i = stiff_mat.ind[i];
 
-                  val = test.chi() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
-                  AddToMat(chi_mass_mat, global_indices[i], global_indices[j], val);
+                     p = test.lambda() * (hy * hz / (hx * 36) * GMM.bot_tr[tr_i] + hx * hz / (hy * 36) * MGM.bot_tr[tr_i] + hx * hy / (hz * 36) * MMG.bot_tr[tr_i]);
+                     //p -= test.chi() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
+                     c = test.sigma() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
+                  }
 
-                  val = test.sigma() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
-                  AddToMat(sigma_mass_mat, global_indices[i], global_indices[j], val);
+                  AddToMat(global, global_indices[i] * 2, global_indices[j] * 2, p, p);
+                  AddToMat(global, global_indices[i] * 2 + 1, global_indices[j] * 2 + 1, p, p);
+
+                  AddToMat(global, global_indices[i] * 2 + 1, global_indices[j] * 2, c, -c);
+                  AddToMat(global, global_indices[i] * 2, global_indices[j] * 2 + 1, -c, c);
                }
             }
 
@@ -475,52 +485,6 @@ public:
                b[global_indices[i]] += hx * hy * hz / 216.0 * local_b[i];
          }
       }
-   }
-
-   // Сборка глобальной матрицы
-   void AssembleGlobalMatrix()
-   {
-      for(int i = 0; i < nodes_count * 2; i++)
-         global.diag[i] = stiff_mat.diag[i] - chi_mass_mat.diag[i];
-
-
-
-
-      //for(int i = 0; i < nodes_count; i++)
-      //{
-      //   int prof_beg = global.ind[i];
-      //   int prof_end = global.ind[i + 1];
-
-      //   for(int tr_i = prof_beg; tr_i < prof_end; tr_i++)
-      //   {
-      //      if(i % 1 == 1)
-      //      {
-      //         if(global.columns_ind[tr_i] % 2 == 0)
-      //         {
-      //            global.bot_tr[tr_i] = sigma_mass_mat.bot_tr[tr_i];
-      //            global.top_tr[tr_i] = -sigma_mass_mat.bot_tr[tr_i];
-      //         }
-      //         else
-      //         {
-      //            global.bot_tr[tr_i] = stiff_mat.bot_tr[tr_i] + chi_mass_mat.bot_tr[tr_i];
-      //            global.top_tr[tr_i] = stiff_mat.top_tr[tr_i] + chi_mass_mat.top_tr[tr_i];
-      //         }
-      //      }
-      //      else
-      //      {
-      //         if(global.columns_ind[tr_i] % 2 == 0)
-      //         {
-      //            global.bot_tr[tr_i] = stiff_mat.bot_tr[tr_i] + chi_mass_mat.bot_tr[tr_i];
-      //            global.top_tr[tr_i] = stiff_mat.top_tr[tr_i] + chi_mass_mat.top_tr[tr_i];
-      //         }
-      //         else
-      //         {
-      //            global.bot_tr[tr_i] = -sigma_mass_mat.bot_tr[tr_i];
-      //            global.top_tr[tr_i] = sigma_mass_mat.bot_tr[tr_i];
-      //         }
-      //      }
-      //   }
-      //}
    }
 
    //// Учет первых краевых условий на строкес с номером line_i
