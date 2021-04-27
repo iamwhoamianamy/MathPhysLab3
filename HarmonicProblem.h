@@ -15,7 +15,7 @@ public:
    Matrix sigma_mass_mat;         // Матрица массы для параметра Сигма
    Matrix chi_mass_mat;           // Матрица массы для параметра Хи
 
-   Matrix  M;                     // Вспомогательные матрицы для вычисления элементов
+   Matrix  GMM, MGM, MMG, MMM;    // Вспомогательные матрицы для вычисления элементов
                                   // локальных матриц и векторов правых частей
 
    SLAE slae;                     // Решатель системы без предобуславливания
@@ -164,7 +164,17 @@ public:
    // матриц жесткости и массы
    void ReadMatrices()
    {
+      GMM = Matrix(8);
+      GMM.ReadDiTr("data/GMM.txt");
 
+      MGM = Matrix(8);
+      MGM.ReadDiTr("data/MGM.txt");
+
+      MMG = Matrix(8);
+      MMG.ReadDiTr("data/MMG.txt");
+
+      MMM = Matrix(8);
+      MMM.ReadDiTr("data/MMM.txt");
    }
 
    // Выделение памяти под массивы
