@@ -12,27 +12,37 @@ public:
 
    Test() : N(0){};
 
-   double f(const double& x, const double& y, const double& z)
-   {
-      return -1 * divlambdagrad(x, y, z) +
-         sigma() * dudt(x, y, z) + chi() * d2udt2(x, y, z);
-   }
-
-   double lambda()
-   {
-      return 6;
-   }
-
-   // Точное решение
-   double u(const double& x, const double& y, const double& z)
+   double us(const double& x, const double& y, const double& z)
    {
       switch(N)
       {
          case(0): return 2.0;
-         case(1): return x + y;
-         case(2): return x * x + y * y;
-         case(3): return x * x * x + y * y * y;
-         case(4): return x * x * x * x + y * y * y * y;
+      };
+   }
+
+   double uc(const double& x, const double& y, const double& z)
+   {
+      switch(N)
+      {
+         case(0): return 5.0;
+      };
+   }
+
+   double fs(const double& x, const double& y, const double& z)
+   {
+      switch(N)
+      {
+         case(0): return -1 * omega() * sigma() * uc(x, y, z) -
+            omega() * omega() * chi() * us(x, y, z);
+      };
+   }
+
+   double fc(const double& x, const double& y, const double& z)
+   {
+      switch(N)
+      {
+         case(0): return omega() * sigma() * us(x, y, z) -
+            omega() * omega() * chi() * uc(x, y, z);
       };
    }
 
@@ -41,46 +51,14 @@ public:
       switch(N)
       {
          case(0): return 0;
-         case(1): return 0;
-         case(2): return 4;
-         case(3): return 4;
-         case(4): return 12 * x * x + 12 * y * y;
       };
    }
 
-   double sigma()
-   {
-      return 1;
-   }
+   double lambda() { return 1; }
 
-   double chi()
-   {
-      return 1;
-   }
+   double sigma() { return 1; }
 
-   // Производная точного решения по t
-   double dudt(const double& x, const double& y, const double& t)
-   {
-      switch(N)
-      {
-         case(0): return 0;
-         case(1): return 0;
-         case(2): return 0;
-         case(3): return 0;
-         case(4): return 0;
-      };
-   }
+   double chi() { return 1; }
 
-   // Вторая производная точного решения по t
-   double d2udt2(const double& x, const double& y, const double& t)
-   {
-      switch(N)
-      {
-         case(0): return 0;
-         case(1): return 0;
-         case(2): return 0;
-         case(3): return 0;
-         case(4): return 0;
-      };
-   }
+   double omega() { return 1; }
 };

@@ -459,7 +459,7 @@ public:
                   if(i == j)
                   {
                      p = test.lambda() * (hy * hz / (hx * 36) * GMM.diag[i] + hx * hz / (hy * 36) * MGM.diag[i] + hx * hy / (hz * 36) * MMG.diag[i]);
-                     //p -= test.chi() * hx * hy * hz / 216.0 * MMM.diag[i];
+                     p -= test.chi() * hx * hy * hz / 216.0 * MMM.diag[i];
                      c = test.sigma() * hx * hy * hz / 216.0 * MMM.diag[i];
                   }
                   else
@@ -467,7 +467,7 @@ public:
                      int tr_i = stiff_mat.ind[i];
 
                      p = test.lambda() * (hy * hz / (hx * 36) * GMM.bot_tr[tr_i] + hx * hz / (hy * 36) * MGM.bot_tr[tr_i] + hx * hy / (hz * 36) * MMG.bot_tr[tr_i]);
-                     //p -= test.chi() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
+                     p -= test.chi() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
                      c = test.sigma() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
                   }
 
