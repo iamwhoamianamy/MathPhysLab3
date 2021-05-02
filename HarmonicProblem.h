@@ -11,9 +11,6 @@ class HarmonicProblem
 public:
    Matrix global;                 // Глобальная матрица
    Matrix fac_global;             // Неполная факторизация глобальной матрицы
-   Matrix stiff_mat;              // Матрица жесткости
-   Matrix sigma_mass_mat;         // Матрица массы для параметра Сигма
-   Matrix chi_mass_mat;           // Матрица массы для параметра Хи
 
    Matrix  GMM, MGM, MMG, MMM;    // Вспомогательные матрицы для вычисления элементов
                                   // локальных матриц и векторов правых частей
@@ -143,7 +140,7 @@ public:
 
       fin >> bound_count;
 
-      boundaries = vector<vector<int>>(bound_count, vector<int>(5));
+      boundaries = vector<vector<int>>(bound_count, vector<int>(7));
 
       for(int bound_i = 0; bound_i < bound_count; bound_i++)
       {
@@ -181,28 +178,25 @@ public:
    // Выделение памяти под массивы
    void InitializeMemory()
    {
-      slae = SLAE(nodes_count, 10000, 1e-20);
-      fac_slae = SLAE(nodes_count, 10000, 1e-20);
+      slae = SLAE(nodes_count * 2, 10000, 1e-20);
+      fac_slae = SLAE(nodes_count * 2, 10000, 1e-20);
 
       global.ind = vector<int>(nodes_count * 2 + 1);
-      b = vector<double>(nodes_count);
+      b = vector<double>(nodes_count * 2);
 
-      solution = vector<double>(nodes_count);
-      true_solution = vector<double>(nodes_count);
-      location = vector<int>(nodes_count);
+      solution = vector<double>(nodes_count * 2);
+      true_solution = vector<double>(nodes_count * 2);
+      location = vector<int>(nodes_count * 2);
 
-      stiff_mat = Matrix(nodes_count);
-      sigma_mass_mat = Matrix(nodes_count);
-      chi_mass_mat = Matrix(nodes_count);
-      fac_global = Matrix(nodes_count, 0);
+      fac_global = Matrix(nodes_count * 2, 0);
    }
 
    // Заполнение массива global_indices индексами, соответствующими глобальной номерации
    // узлов конечного элемента с номером elem_index(индексация с нуля)
-   void CalcGlobalIndices(int elem_index, vector<int>& global_indices)
+   void CalcGlobalIndices(int elem_i, vector<int>& global_indices)
    {
       int n_coords = x_nodes_count / 2 + 1;
-      int k = elem_index % (x_nodes_count - 1) + x_nodes_count * floor(elem_index / (x_nodes_count - 1));
+      int k = elem_i % (x_nodes_count - 1) + x_nodes_count * floor(elem_i / (x_nodes_count - 1));
       k = k % (x_nodes_count * (y_nodes_count - 1)) + (x_nodes_count * y_nodes_count) * floor(k / (x_nodes_count * (y_nodes_count - 1)));
 
       global_indices[0] = (k + 0);
@@ -219,11 +213,11 @@ public:
    }
 
    // Поиск региона по номеру конечного элемента
-   int CalcRegionIndex(const int& elem_index)
+   int CalcRegionIndex(const int& elem_i)
    {
       int n_coords = x_nodes_count / 2 + 1;
-      int x0 = (elem_index) % (n_coords - 1) * 2 + 1;
-      int y0 = floor((elem_index) / (n_coords - 1)) * 2 + 1;
+      int x0 = (elem_i) % (n_coords - 1) * 2 + 1;
+      int y0 = floor((elem_i) / (n_coords - 1)) * 2 + 1;
 
       int found_reg_i = -1;
 
@@ -406,27 +400,27 @@ public:
          int reg_i = CalcRegionIndex(elem_i);
          CalcGlobalIndices(elem_i, global_indices);
 
-         if(reg_i == -1)
-         {
-            for(int i = 0; i < 9; i++)
-            {
-               stiff_mat.diag[global_indices[i]] = 1;
-               stiff_mat.diag[global_indices[i] + 1] = 1;
+         //if(reg_i == -1)
+         //{
+         //   for(int i = 0; i < 8; i++)
+         //   {
+         //      global.diag[global_indices[i] * 2    ] = 1;
+         //      global.diag[global_indices[i] * 2 + 1] = 1;
 
-               sigma_mass_mat.diag[global_indices[i]] = 0;
-               sigma_mass_mat.diag[global_indices[i] + 1] = 0;
+         //      //sigma_mass_mat.diag[global_indices[i]] = 0;
+         //      //sigma_mass_mat.diag[global_indices[i] + 1] = 0;
 
-               chi_mass_mat.diag[global_indices[i]] = 0;
-               chi_mass_mat.diag[global_indices[i] + 1] = 0;
+         //      //chi_mass_mat.diag[global_indices[i]] = 0;
+         //      //chi_mass_mat.diag[global_indices[i] + 1] = 0;
 
-               b[global_indices[i]] = 0;
-               b[global_indices[i] + 1] = 0;
+         //      b[global_indices[i] * 2    ] = 0;
+         //      b[global_indices[i] * 2 + 1] = 0;
 
-               location[global_indices[i]] = 2;
-               location[global_indices[i] + 1] = 2;
-            }
-         }
-         else
+         //      location[global_indices[i] * 2    ] = 2;
+         //      location[global_indices[i] * 2 + 1] = 2;
+         //   }
+         //}
+         //else
          {
             vector<double> x_elem_nodes(2);       // Координаты конечного элемента по x
             vector<double> y_elem_nodes(2);       // Координаты конечного элемента по y
@@ -437,19 +431,20 @@ public:
             double hy = y_elem_nodes[1] - y_elem_nodes[0];
             double hz = z_elem_nodes[1] - z_elem_nodes[0];
 
-            vector<double> local_f(8);
+            vector<double> local_fs(8);
+            vector<double> local_fc(8);
 
             for(int i = 0; i < 8; i++)
             {
                double x = x_elem_nodes[i % 2];
                double y = y_elem_nodes[(int)floor(i / 2) % 2];
-               double z = y_elem_nodes[(int)floor(i / 4) % 4];
+               double z = z_elem_nodes[(int)floor(i / 4) % 4];
 
-               local_f[i] = test.f(x, y, z);
-               true_solution[global_indices[i]] = test.u(x, y, z);
+               local_fs[i] = test.fs(x, y, z);
+               local_fc[i] = test.fc(x, y, z);
 
-               int beg_prof = stiff_mat.ind[i];
-               int end_prof = stiff_mat.ind[i + 1];
+               true_solution[global_indices[i] * 2    ] = test.us(x, y, z);
+               true_solution[global_indices[i] * 2 + 1] = test.uc(x, y, z);
 
                for(int j = 0; j <= i; j++)
                {
@@ -459,78 +454,96 @@ public:
                   if(i == j)
                   {
                      p = test.lambda() * (hy * hz / (hx * 36) * GMM.diag[i] + hx * hz / (hy * 36) * MGM.diag[i] + hx * hy / (hz * 36) * MMG.diag[i]);
-                     p -= test.chi() * hx * hy * hz / 216.0 * MMM.diag[i];
-                     c = test.sigma() * hx * hy * hz / 216.0 * MMM.diag[i];
+                     p -= test.omega() * test.omega() * test.chi() * hx * hy * hz / 216.0 * MMM.diag[i];
+                     c = test.omega() * test.sigma() * hx * hy * hz / 216.0 * MMM.diag[i];
                   }
                   else
                   {
-                     int tr_i = stiff_mat.ind[i];
+                     int tr_i = MMM.ind[i] + j;
 
                      p = test.lambda() * (hy * hz / (hx * 36) * GMM.bot_tr[tr_i] + hx * hz / (hy * 36) * MGM.bot_tr[tr_i] + hx * hy / (hz * 36) * MMG.bot_tr[tr_i]);
-                     p -= test.chi() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
-                     c = test.sigma() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
+                     p -= test.omega() * test.omega() * test.chi() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
+                     c = test.omega() * test.sigma() * hx * hy * hz / 216.0 * MMM.bot_tr[tr_i];
                   }
 
-                  AddToMat(global, global_indices[i] * 2, global_indices[j] * 2, p, p);
+                  AddToMat(global, global_indices[i] * 2    , global_indices[j] * 2    , p, p);
                   AddToMat(global, global_indices[i] * 2 + 1, global_indices[j] * 2 + 1, p, p);
 
-                  AddToMat(global, global_indices[i] * 2 + 1, global_indices[j] * 2, c, -c);
-                  AddToMat(global, global_indices[i] * 2, global_indices[j] * 2 + 1, -c, c);
+                  AddToMat(global, global_indices[i] * 2 + 1, global_indices[j] * 2    , c, -c);
+                  AddToMat(global, global_indices[i] * 2    , global_indices[j] * 2 + 1, -c, c);
                }
             }
 
-            vector<double> local_b(8);
-            MMM.MatVecMult(local_f, local_b, MMM.bot_tr, MMM.top_tr);
+            vector<double> local_bs(8);
+            vector<double> local_bc(8);
+            MMM.MatVecMult(local_fs, local_bs, MMM.bot_tr, MMM.top_tr);
+            MMM.MatVecMult(local_fc, local_bc, MMM.bot_tr, MMM.top_tr);
+
             for(int i = 0; i < 8; i++)
-               b[global_indices[i]] += hx * hy * hz / 216.0 * local_b[i];
+            {
+               b[global_indices[i] * 2    ] += hx * hy * hz / 216.0 * local_bs[i];
+               b[global_indices[i] * 2 + 1] += hx * hy * hz / 216.0 * local_bc[i];
+            }
          }
       }
    }
 
-   //// Учет первых краевых условий на строкес с номером line_i
-   //void FirstBoundOnLine(const int& line_i, const double& x, const double& y, const double& t)
-   //{
-   //   global.diag[line_i] = 1;
-   //   true_solution[line_i] = test.u(x, y, t);
-   //   b[line_i] = test.u(x, y, t);
+   // Учет первых краевых условий на строкес с номером line_i
+   void FirstBoundOnLine(int line_i, const double& x, const double& y, const double& z)
+   {
+      line_i *= 2;
 
+      global.diag[line_i    ] = 1;
+      global.diag[line_i + 1] = 1;
 
-   //   for(int prof_i = global.ind[line_i]; prof_i < global.ind[line_i + 1]; prof_i++)
-   //   {
-   //      global.bot_tr[prof_i] = 0;
-   //   }
+      true_solution[line_i    ] = test.us(x, y, z);
+      true_solution[line_i + 1] = test.uc(x, y, z);
 
-   //   for(int i = 0; i < nodes_count; i++)
-   //   {
-   //      for(int prof_i = global.ind[i]; prof_i < global.ind[i + 1]; prof_i++)
-   //      {
-   //         if(global.columns_ind[prof_i] == line_i)
-   //            global.top_tr[prof_i] = 0;
-   //      }
-   //   }
-   //}
+      b[line_i    ] = test.us(x, y, z);
+      b[line_i + 1] = test.uc(x, y, z);
 
-   //// Учет первых краевых условий
-   //void AccountFirstBound(const double& t)
-   //{
-   //   for(int x_i = 0; x_i < x_nodes_count; x_i++)
-   //   {
-   //      for(int y_i = 0; y_i < y_nodes_count; y_i++)
-   //      {
-   //         for(int bound_i = 0; bound_i < bound_count; bound_i++)
-   //         {
-   //            if(boundaries[bound_i][1] <= x_i && x_i <= boundaries[bound_i][2] &&
-   //               boundaries[bound_i][3] <= y_i && y_i <= boundaries[bound_i][4])
-   //            {
-   //               int i = x_i + y_i * x_nodes_count;
-   //               FirstBoundOnLine(i, x_nodes[x_i], y_nodes[y_i], t);
-   //               location[i] = 1;
-   //               break;
-   //            }
-   //         }
-   //      }
-   //   }
-   //}
+      for(int prof_i = global.ind[line_i]; prof_i < global.ind[line_i + 1]; prof_i++)
+         global.bot_tr[prof_i] = 0;
+
+      for(int prof_i = global.ind[line_i + 1]; prof_i < global.ind[line_i + 2]; prof_i++)
+         global.bot_tr[prof_i] = 0;
+
+      for(int i = 0; i < nodes_count * 2; i++)
+      {
+         for(int prof_i = global.ind[i]; prof_i < global.ind[i + 1]; prof_i++)
+         {
+            if(global.columns_ind[prof_i] == line_i || global.columns_ind[prof_i] == line_i + 1)
+               global.top_tr[prof_i] = 0;
+         }
+      }
+   }
+
+   // Учет первых краевых условий
+   void AccountFirstBound()
+   {
+      for(int x_i = 0; x_i < x_nodes_count; x_i++)
+      {
+         for(int y_i = 0; y_i < y_nodes_count; y_i++)
+         {
+            for(int z_i = 0; z_i < z_nodes_count; z_i++)
+            {
+               for(int bound_i = 0; bound_i < bound_count; bound_i++)
+               {
+                  if(boundaries[bound_i][1] <= x_i && x_i <= boundaries[bound_i][2] &&
+                     boundaries[bound_i][3] <= y_i && y_i <= boundaries[bound_i][4] &&
+                     boundaries[bound_i][5] <= z_i && z_i <= boundaries[bound_i][6])
+                  {
+                     int i = x_i + y_i * x_nodes_count + z_i * x_nodes_count * y_nodes_count;
+                     FirstBoundOnLine(i, x_nodes[x_i], y_nodes[y_i], z_nodes[z_i]);
+                     location[i * 2   ] = 1;
+                     location[i * 2 + 1] = 1;
+                     break;
+                  }
+               }
+            }
+         }
+      }
+   }
 
    // Нахождение решения
    void Solve()
@@ -538,54 +551,86 @@ public:
       slae.b = b;
       global.DiagFact(fac_global);
 
-      vector<double> x0(nodes_count);
+      vector<double> x0(nodes_count * 2);
       cout << slae.ConjGradPredMethod(x0, solution, global, fac_slae, fac_global) << endl;
    }
 
-   //// Вывод решения на временном слое t в поток fout 
-   //void PrintSolution(ofstream& fout, const double& t)
-   //{
-   //   fout << "t = " << fixed << t << endl;
-   //   fout << setw(14) << "x" << setw(14) << "y";
-   //   fout << setw(14) << "prec" << setw(14) << "calc" << setw(14) << "diff" << setw(5) << "n" << " loc" << endl;
+   // Вывод решения на временном слое t в поток fout 
+   void PrintSolution(ofstream& fout)
+   {
+      fout << setw(14) << "x" << setw(14) << "y" << setw(14) << "z";
+      fout << setw(14) << "prec" << setw(14) << "calc" << setw(14) << "diff";
+      fout << setw(5) << "n" << " loc" << endl;
 
-   //   double norm = 0, norm_u = 0;
+      double norm = 0, norm_u = 0;
+      for(int z_i = 0; z_i < z_nodes_count; z_i++)
+      {
+         for(int y_i = 0; y_i < y_nodes_count; y_i++)
+         {
+            for(int x_i = 0; x_i < x_nodes_count; x_i++)
+            {
+               int i = x_i + y_i * x_nodes_count + z_i * x_nodes_count * y_nodes_count;
 
-   //   for(int y_i = 0; y_i < y_nodes_count; y_i++)
-   //   {
-   //      for(int x_i = 0; x_i < x_nodes_count; x_i++)
-   //      {
-   //         int i = x_i + y_i * x_nodes_count;
+               double prec = true_solution[i * 2];
+               double calc = solution[i * 2];
 
-   //         double prec = true_solution[i];
-   //         double calc = solution[i];
+               //if(x_i % 32 == 0 && y_i % 32 == 0)
+               {
+                  fout << scientific;
+                  fout << setw(14) << x_nodes[x_i];
+                  fout << setw(14) << y_nodes[y_i];
+                  fout << setw(14) << z_nodes[z_i];
 
-   //         if(x_i % 32 == 0 && y_i % 32 == 0)
-   //         {
-   //            fout << scientific;
-   //            fout << setw(14) << x_nodes[x_i];
-   //            fout << setw(14) << y_nodes[y_i];
-   //            fout << setw(14) << prec;
-   //            fout << setw(14) << calc;
-   //            fout << setw(14) << abs(true_solution[i] - solution[i]);
-   //            fout << fixed << setw(5) << i;
+                  fout << setw(14) << prec;
+                  fout << setw(14) << calc;
+                  fout << setw(14) << abs(true_solution[i * 2] - solution[i * 2]);
 
-   //            if(location[i] == 2)
-   //               fout << " outer";
-   //            else if(location[i] == 1)
-   //               fout << " border";
-   //            else
-   //               fout << " inner";
+                  fout << fixed << setw(5) << i * 2;
 
-   //            fout << endl;
+                  if(location[i * 2] == 2)
+                     fout << " outer";
+                  else if(location[i * 2] == 1)
+                     fout << " border";
+                  else
+                     fout << " inner";
 
-   //         }
-   //         norm_u += prec * prec;
-   //         norm += abs(prec - calc) * abs(prec - calc);
-   //      }
-   //   }
+                  fout << endl;
 
-   //   fout << "||u-u*||/||u*|| = " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
-   //   fout << "||u-u*||" << scientific << sqrt(norm) << endl;
-   //}
+               }
+
+               prec = true_solution[i * 2 + 1];
+               calc = solution[i * 2 + 1];
+
+               //if(x_i % 32 == 0 && y_i % 32 == 0)
+               {
+                  fout << scientific;
+                  fout << setw(14) << x_nodes[x_i];
+                  fout << setw(14) << y_nodes[y_i];
+                  fout << setw(14) << z_nodes[z_i];
+
+                  fout << setw(14) << prec;
+                  fout << setw(14) << calc;
+                  fout << setw(14) << abs(true_solution[i * 2 + 1] - solution[i * 2 + 1]);
+
+                  fout << fixed << setw(5) << i * 2 + 1;
+
+                  if(location[i * 2 + 1] == 2)
+                     fout << " outer";
+                  else if(location[i * 2 + 1] == 1)
+                     fout << " border";
+                  else
+                     fout << " inner";
+
+                  fout << endl;
+
+               }
+               norm_u += prec * prec;
+               norm += abs(prec - calc) * abs(prec - calc);
+            }
+         }
+      }
+
+      fout << "||u-u*||/||u*|| = " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
+      fout << "||u-u*||" << scientific << sqrt(norm) << endl;
+   }
 };

@@ -143,27 +143,3 @@ public:
       }
    }
 };
-
-//// Умножение матрицы на число
-//Matrix operator * (double val, const Matrix& mat)
-//{
-//   Matrix res = Matrix(mat);
-//
-//   res.di = val * res.di;
-//   res.ggl = val * res.ggl;
-//   res.ggu = val * res.ggu;
-//
-//   return res;
-//}
-//
-//// Сложение матриц
-//Matrix operator + (const Matrix& mat1, const Matrix& mat2)
-//{
-//   Matrix res = Matrix(mat1);
-//
-//   res.di = res.di + mat2.di;
-//   res.ggl = res.ggl + mat2.ggl;
-//   res.ggu = res.ggu + mat2.ggu;
-//
-//   return res;
-//}
