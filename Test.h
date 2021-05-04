@@ -70,6 +70,8 @@ public:
          case(1): return 2e3;
          case(2): return 4e4;
          case(3): return 8e5;
+
+         case(4): return 1;
       };
    }
 
@@ -81,6 +83,8 @@ public:
          case(1): return 1e3;
          case(2): return 1e5;
          case(3): return 1e8;
+
+         case(4): return 1;
       };
    }
 
@@ -92,6 +96,8 @@ public:
          case(1): return 1e-12;
          case(2): return 1e-11;
          case(3): return 1e-10;
+
+         case(4): return 1;
       };
    }
 
@@ -103,6 +109,8 @@ public:
          case(1): return 1e1;
          case(2): return 1e5;
          case(3): return 1e9;
+
+         case(4): return 1;
       };
    }
 };

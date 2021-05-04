@@ -396,6 +396,16 @@ public:
    {
       vector<int> global_indices(8);
 
+      for(int i = 0; i < global.tr_size; i++)
+      {
+         global.bot_tr[i] = global.top_tr[i] = 0;
+      }
+
+      for(int i = 0; i < nodes_count * 2; i++)
+      {
+         global.diag[i] = b[i] = 0;
+      }
+
       for(int elem_i = 0; elem_i < elems_count; elem_i++)
       {
          int reg_i = CalcRegionIndex(elem_i);
@@ -558,7 +568,7 @@ public:
       int iter = slae.ConjGradPredMethod(x0, solution, global, fac_slae, fac_global);
       double end_time = clock();
 
-      fout << iter << "\t" << (end_time - start_time) / CLOCKS_PER_SEC * 1000 << "\t";
+      fout << "Iterations: " << iter << "\t time:" << (end_time - start_time) / CLOCKS_PER_SEC * 1000 << endl;
    }
 
    // ¬ывод решени€ на временном слое t в поток fout 
@@ -581,7 +591,7 @@ public:
                double calc = solution[i * 2];
 
                //if(x_i % 32 == 0 && y_i % 32 == 0)
-              /* {
+               /*{
                   fout << scientific;
                   fout << setw(14) << x_nodes[x_i];
                   fout << setw(14) << y_nodes[y_i];
@@ -636,9 +646,9 @@ public:
          }
       }
 
-      /*fout << "||u-u*||/||u*|| = " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
-      fout << "||u-u*|| = " << scientific << sqrt(norm) << endl;*/
-      fout << scientific << sqrt(norm) << "\t";
-      fout << scientific << sqrt(norm) / sqrt(norm_u) << endl;
+      fout << "||u-u*||/||u*|| = " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
+      fout << "||u-u*|| = " << scientific << sqrt(norm) << endl;
+      //fout << "norm u " << scientific << sqrt(norm) << "\t";
+      //fout << "norm u  " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
    }
 };
