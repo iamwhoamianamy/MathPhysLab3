@@ -3,6 +3,7 @@
 #include "Matrix.h"
 #include "SLAE.h"
 #include "Test.h"
+#include <ctime> 
 
 using namespace std;
 
@@ -546,21 +547,26 @@ public:
    }
 
    // Нахождение решения
-   void Solve()
+   void Solve(ofstream& fout)
    {
       slae.b = b;
       global.DiagFact(fac_global);
 
       vector<double> x0(nodes_count * 2);
-      cout << slae.ConjGradPredMethod(x0, solution, global, fac_slae, fac_global) << endl;
+
+      double start_time = clock();
+      int iter = slae.ConjGradPredMethod(x0, solution, global, fac_slae, fac_global);
+      double end_time = clock();
+
+      fout << iter << "\t" << (end_time - start_time) / CLOCKS_PER_SEC * 1000 << "\t";
    }
 
    // Вывод решения на временном слое t в поток fout 
    void PrintSolution(ofstream& fout)
    {
-      fout << setw(14) << "x" << setw(14) << "y" << setw(14) << "z";
+      /*fout << setw(14) << "x" << setw(14) << "y" << setw(14) << "z";
       fout << setw(14) << "prec" << setw(14) << "calc" << setw(14) << "diff";
-      fout << setw(5) << "n" << " loc" << endl;
+      fout << setw(5) << "n" << " loc" << endl;*/
 
       double norm = 0, norm_u = 0;
       for(int z_i = 0; z_i < z_nodes_count; z_i++)
@@ -575,7 +581,7 @@ public:
                double calc = solution[i * 2];
 
                //if(x_i % 32 == 0 && y_i % 32 == 0)
-               {
+              /* {
                   fout << scientific;
                   fout << setw(14) << x_nodes[x_i];
                   fout << setw(14) << y_nodes[y_i];
@@ -596,13 +602,13 @@ public:
 
                   fout << endl;
 
-               }
+               }*/
 
                prec = true_solution[i * 2 + 1];
                calc = solution[i * 2 + 1];
 
                //if(x_i % 32 == 0 && y_i % 32 == 0)
-               {
+               /*{
                   fout << scientific;
                   fout << setw(14) << x_nodes[x_i];
                   fout << setw(14) << y_nodes[y_i];
@@ -623,14 +629,16 @@ public:
 
                   fout << endl;
 
-               }
+               }*/
                norm_u += prec * prec;
                norm += abs(prec - calc) * abs(prec - calc);
             }
          }
       }
 
-      fout << "||u-u*||/||u*|| = " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
-      fout << "||u-u*||" << scientific << sqrt(norm) << endl;
+      /*fout << "||u-u*||/||u*|| = " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
+      fout << "||u-u*|| = " << scientific << sqrt(norm) << endl;*/
+      fout << scientific << sqrt(norm) << "\t";
+      fout << scientific << sqrt(norm) / sqrt(norm_u) << endl;
    }
 };
