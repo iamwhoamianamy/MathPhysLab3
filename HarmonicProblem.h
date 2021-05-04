@@ -179,8 +179,8 @@ public:
    // Выделение памяти под массивы
    void InitializeMemory()
    {
-      slae = SLAE(nodes_count * 2, 10000, 1e-20);
-      fac_slae = SLAE(nodes_count * 2, 10000, 1e-20);
+      slae = SLAE(nodes_count * 2, 30000, 1e-20);
+      fac_slae = SLAE(nodes_count * 2, 30000, 1e-20);
 
       global.ind = vector<int>(nodes_count * 2 + 1);
       b = vector<double>(nodes_count * 2);
@@ -568,7 +568,7 @@ public:
       int iter = slae.ConjGradPredMethod(x0, solution, global, fac_slae, fac_global);
       double end_time = clock();
 
-      fout << "Iterations: " << iter << "\t time:" << (end_time - start_time) / CLOCKS_PER_SEC * 1000 << endl;
+      fout << iter << "\t" << (end_time - start_time) / CLOCKS_PER_SEC << "\t";
    }
 
    // Вывод решения на временном слое t в поток fout 
@@ -646,9 +646,9 @@ public:
          }
       }
 
-      fout << "||u-u*||/||u*|| = " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
-      fout << "||u-u*|| = " << scientific << sqrt(norm) << endl;
-      //fout << "norm u " << scientific << sqrt(norm) << "\t";
-      //fout << "norm u  " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
+      /*fout << "||u-u*||/||u*|| = " << scientific << sqrt(norm) / sqrt(norm_u) << endl;
+      fout << "||u-u*|| = " << scientific << sqrt(norm) << endl;*/
+      fout << scientific << sqrt(norm) << "\t";
+      fout << scientific << sqrt(norm) / sqrt(norm_u) << endl;
    }
 };

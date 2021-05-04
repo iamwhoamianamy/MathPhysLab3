@@ -67,11 +67,9 @@ public:
       switch (I)
       {
          case(0): return 1e2;
-         case(1): return 2e3;
-         case(2): return 4e4;
-         case(3): return 8e5;
-
-         case(4): return 1;
+         case(1): return 1e4;
+         case(2): return 8e5;
+         case(3): return 1;
       };
    }
 
@@ -80,11 +78,9 @@ public:
       switch (J)
       {
          case(0): return 0;
-         case(1): return 1e3;
-         case(2): return 1e5;
-         case(3): return 1e8;
-
-         case(4): return 1;
+         case(1): return 1e4;
+         case(2): return 1e8;
+         case(3): return 1;
       };
    }
 
@@ -93,11 +89,9 @@ public:
       switch (L)
       {
          case(0): return 8.81e-12;
-         case(1): return 1e-12;
-         case(2): return 1e-11;
-         case(3): return 1e-10;
-
-         case(4): return 1;
+         case(1): return 1e-11;
+         case(2): return 1e-10;
+         case(3): return 1;
       };
    }
 
@@ -106,11 +100,14 @@ public:
       switch (P)
       {
          case(0): return 1e-4;
-         case(1): return 1e1;
-         case(2): return 1e5;
-         case(3): return 1e9;
-
-         case(4): return 1;
+         case(1): return 1e3;
+         case(2): return 1e9;
+         case(3): return 1;
       };
+   }
+
+   void Print(ofstream& fout)
+   {
+      fout << scientific << omega() << "\t" << lambda() << "\t" << sigma() << "\t" << chi() << "\t";
    }
 };
