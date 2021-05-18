@@ -565,7 +565,8 @@ public:
       vector<double> x0(nodes_count * 2);
 
       double start_time = clock();
-      int iter = slae.ConjGradPredMethod(x0, solution, global, fac_slae, fac_global);
+      //int iter = slae.ConjGradPredMethod(x0, solution, global, fac_slae, fac_global);
+      int iter = slae.ConjGradMethod(x0, solution, global);
       double end_time = clock();
 
       fout << iter << "\t" << (end_time - start_time) / CLOCKS_PER_SEC << "\t";

@@ -13,26 +13,13 @@ int main()
    ofstream fout("result.txt");
 
    //for (int p = 0; p < 3; p++)
-      for (int i = 0; i < 2; i++)
-         for (int j = 0; j < 3; j++)
-            for (int l = 0; l < 3; l++)
+      //for (int i = 0; i < 2; i++)
+         //for (int j = 1; j < 3; j++)
+            //for (int l = 0; l < 3; l++)
             {
                hp.InitializeMemory();
                hp.FormGlobalPortrait();
-               hp.test = Test(1, i, j, l, 0);
-               hp.AssembleGlobalMatrix();
-               hp.AccountFirstBound();
-               hp.test.Print(fout);
-               hp.Solve(fout);
-               hp.PrintSolution(fout);
-            }
-
-      for (int i = 0; i < 2; i++)
-            for (int l = 0; l < 3; l++)
-            {
-               hp.InitializeMemory();
-               hp.FormGlobalPortrait();
-               hp.test = Test(1, i, 0, l, 1);
+               hp.test = Test(1, 2, 0, 2, 1);
                hp.AssembleGlobalMatrix();
                hp.AccountFirstBound();
                hp.test.Print(fout);
